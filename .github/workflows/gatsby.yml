@@ -3,7 +3,7 @@ name: Deploy Gatsby to GitHub Pages
 on:
   push:
     branches:
-      - main  # change if your default branch is not "main"
+      - main  # change if default branch is not "main"
 
 jobs:
   build-deploy:
@@ -16,10 +16,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20   # 🔥 use Node 20 (not 18)
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: Build Gatsby site
         run: yarn build
