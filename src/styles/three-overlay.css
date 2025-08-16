@@ -1,0 +1,26 @@
+/* src/styles/three-overlay.css */
+
+.portfolio-3d-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh; /* cover viewport */
+  z-index: 0;
+  pointer-events: none; /* so page links/buttons still clickable */
+}
+
+/* content wrapper where your actual page sits should have z-index: 5 or more */
+.page-content-overlay {
+  position: relative;
+  z-index: 5;
+}
+
+/* small optional effect: slight neon vignette */
+.neon-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .55) 100%);
+  pointer-events: none;
+}
