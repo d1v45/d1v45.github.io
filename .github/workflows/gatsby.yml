@@ -2,7 +2,7 @@ name: Build & Deploy Gatsby to GitHub Pages
 
 on:
   push:
-    branches: ["main"]    # change if your default branch is different
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -22,91 +22,65 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Prevents the OpenSSL/webpack crypto error for older Gatsby builds
     env:
       NODE_OPTIONS: --openssl-legacy-provider
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Read packageManager from package.json
-        id: pm
-        run: |
-          if [ -f package.json ]; then
-            pkg_pm=$(node -e "console.log(require('./package.json').packageManager || '')")
-            echo "pm=$pkg_pm" >> $GITHUB_OUTPUT
-          else
-            echo "pm=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Setup Node.js (use Node 20)
+      - name: Setup Node (20) and cache
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'yarn'
+          cache: "yarn"
 
-      # If packageManager includes yarn@4.* enable corepack and prepare the exact yarn version
-      - name: Enable Corepack & prepare Yarn 4 (if required)
-        if: startsWith(steps.pm.outputs.pm, 'yarn@')
+      - name: Enable Corepack (so Yarn releases in packageManager work)
         run: |
-          # Use corepack to enable Yarn; this ensures the exact yarn version from packageManager is used.
-          corepack enable
-          # if user pinned yarn@4.9.2+sha... in package.json, corepack prepare will install it
-          corepack prepare "${{ steps.pm.outputs.pm#*@ }}" --activate || true
-          echo "Corepack enabled. Using: $(yarn --version || true)"
+          corepack enable || true
+          # try to prepare the stable Yarn so 'yarn' exists; ignore failures
+          corepack prepare yarn@stable --activate || true
+          echo "Corepack enabled. node: $(node -v), npm: $(npm -v), yarn: $(yarn --version 2>/dev/null || echo 'not installed')"
 
-      - name: Ensure Yarn v1 fallback (only if yarn.lock exists but packageManager isn't set)
-        if: ${{ !startsWith(steps.pm.outputs.pm, 'yarn@') && -f 'yarn.lock' }}
-        run: |
-          # If repo has yarn.lock but packageManager isn't yarn@..., install stable yarn v1 to avoid surprises
-          npm install -g yarn@1.22.22
-          echo "Installed Yarn v1 fallback: $(yarn --version)"
-
-      - name: Print environment summary
-        run: |
-          echo "Node: $(node -v)"
-          echo "npm:  $(npm -v)"
-          if command -v yarn >/dev/null 2>&1; then echo "yarn: $(yarn --version)"; fi
-          echo "packageManager: '${{ steps.pm.outputs.pm }}'"
-          if [ -f yarn.lock ]; then echo "yarn.lock exists"; else echo "no yarn.lock"; fi
-
-      - name: Setup GitHub Pages (configure-pages)
+      - name: Configure Pages (prepare Pages environment)
         id: pages
         uses: actions/configure-pages@v5
         with:
           static_site_generator: gatsby
 
-      - name: Install dependencies (Yarn v4 / v1 / npm fallback)
+      - name: Install dependencies (Yarn v4 / Yarn v1 / npm fallback)
         run: |
-          set -e
-          if [ -f package.json ] && [[ "${{ steps.pm.outputs.pm }}" == yarn@* ]]; then
-            # Yarn 4 (berry) path
-            if [ -f yarn.lock ]; then
-              echo "Yarn v4 + yarn.lock -> immutable install"
+          set -euo pipefail
+          echo "Files present:"
+          [ -f yarn.lock ] && echo "- yarn.lock exists" || echo "- yarn.lock missing"
+          [ -f package-lock.json ] && echo "- package-lock.json exists" || echo "- package-lock.json missing"
+
+          if [ -f yarn.lock ]; then
+            # If yarn is available and is v4 (berry), use immutable install.
+            if command -v yarn >/dev/null 2>&1 && yarn --version | grep -q '^[4-]'; then
+              echo "Detected Yarn v4 (berry) -> running immutable install"
               yarn install --immutable --inline-builds
             else
-              echo "Yarn v4 + no yarn.lock -> normal install (will create lockfile)"
-              yarn install --inline-builds
+              # If yarn is not v4, install Yarn v1 and use frozen-lockfile (safer for older projects)
+              echo "Installing Yarn v1 (fallback) to honor yarn.lock"
+              npm install -g yarn@1.22.22
+              yarn --version
+              yarn install --frozen-lockfile --network-concurrency 1 || yarn install --network-concurrency 1
             fi
-          elif [ -f yarn.lock ]; then
-            # Repo has yarn.lock but packageManager not set to yarn@ - use yarn v1 for consistency
-            echo "Using Yarn v1 (installed earlier) with yarn.lock"
-            yarn install --frozen-lockfile --network-concurrency 1 || yarn install --network-concurrency 1
           elif [ -f package-lock.json ]; then
-            echo "Using npm ci"
+            echo "package-lock.json found -> using npm ci"
             npm ci
           else
-            echo "No lockfile found - using npm install"
+            echo "No lockfile found -> using npm install"
             npm install
           fi
         timeout-minutes: 30
 
-      - name: Build site
+      - name: Build Gatsby site
         run: |
-          echo "Building site..."
-          # Use the same package manager to run the build script
-          if [[ "${{ steps.pm.outputs.pm }}" == yarn@* ]] || [ -f yarn.lock ]; then
+          echo "Building with Gatsby..."
+          # Prefer yarn if it exists, else npm
+          if command -v yarn >/dev/null 2>&1; then
             yarn build
           else
             npm run build
