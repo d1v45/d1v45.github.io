@@ -1,11 +1,11 @@
 // src/components/Starfield.jsx
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 
 export default function Starfield({
-  starColor = "#ffffffff",
-  starSize = 3,
-  starMinScale = 0.1,
-  overflowThreshold = 50,
+  starColor = "#ffffff",
+  starSize = 4,
+  starMinScale = 0.3,
+  overflowThreshold = 5,
 } = {}) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
@@ -16,13 +16,14 @@ export default function Starfield({
   const dimsRef = useRef({ scale: 1, w: 0, h: 0 });
 
   useEffect(() => {
+    console.log("Starfield mounted");
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    // create stars based on current viewport size
+    const STAR_COUNT = Math.floor((window.innerWidth + window.innerHeight) / 8);
+
     function generate() {
-      const STAR_COUNT = Math.floor((window.innerWidth + window.innerHeight) / 8);
       starsRef.current = [];
       for (let i = 0; i < STAR_COUNT; i++) {
         starsRef.current.push({
@@ -42,24 +43,14 @@ export default function Starfield({
       let direction = "z";
       let vx = Math.abs(velocityRef.current.x),
         vy = Math.abs(velocityRef.current.y);
-
       if (vx > 1 || vy > 1) {
-        let axis;
-        if (vx > vy) {
-          axis = Math.random() < vx / (vx + vy) ? "h" : "v";
-        } else {
-          axis = Math.random() < vy / (vx + vy) ? "v" : "h";
-        }
-
-        if (axis === "h") {
-          direction = velocityRef.current.x > 0 ? "l" : "r";
-        } else {
-          direction = velocityRef.current.y > 0 ? "t" : "b";
-        }
+        let axis = vx > vy ? (Math.random() < vx / (vx + vy) ? "h" : "v")
+                           : (Math.random() < vy / (vx + vy) ? "v" : "h");
+        direction = axis === "h"
+          ? (velocityRef.current.x > 0 ? "l" : "r")
+          : (velocityRef.current.y > 0 ? "t" : "b");
       }
-
       star.z = starMinScale + Math.random() * (1 - starMinScale);
-
       if (direction === "z") {
         star.z = 0.1;
         star.x = Math.random() * dimsRef.current.w;
@@ -83,31 +74,22 @@ export default function Starfield({
       dimsRef.current.scale = window.devicePixelRatio || 1;
       dimsRef.current.w = Math.floor(window.innerWidth * dimsRef.current.scale);
       dimsRef.current.h = Math.floor(window.innerHeight * dimsRef.current.scale);
-
-      // set canvas pixel size for crisp rendering
       canvas.width = dimsRef.current.w;
       canvas.height = dimsRef.current.h;
-
-      // CSS should remain full viewport
       canvas.style.width = "100%";
       canvas.style.height = "100%";
-
-      // if stars exist place them inside new bounds; if none, generate
-      if (!starsRef.current.length) generate();
       starsRef.current.forEach(placeStar);
     }
 
     function update() {
       velocityRef.current.tx *= 0.96;
       velocityRef.current.ty *= 0.96;
-
       velocityRef.current.x += (velocityRef.current.tx - velocityRef.current.x) * 0.8;
       velocityRef.current.y += (velocityRef.current.ty - velocityRef.current.y) * 0.8;
 
       starsRef.current.forEach((star) => {
         star.x += velocityRef.current.x * star.z;
         star.y += velocityRef.current.y * star.z;
-
         star.x += (star.x - dimsRef.current.w / 2) * velocityRef.current.z * star.z;
         star.y += (star.y - dimsRef.current.h / 2) * velocityRef.current.z * star.z;
         star.z += velocityRef.current.z;
@@ -124,9 +106,7 @@ export default function Starfield({
     }
 
     function render() {
-      // clear whole pixel area
       ctx.clearRect(0, 0, dimsRef.current.w, dimsRef.current.h);
-
       starsRef.current.forEach((star) => {
         ctx.beginPath();
         ctx.lineCap = "round";
@@ -134,12 +114,10 @@ export default function Starfield({
         ctx.globalAlpha = 0.5 + 0.5 * Math.random();
         ctx.strokeStyle = starColor;
         ctx.moveTo(star.x, star.y);
-
         let tailX = velocityRef.current.x * 2;
         let tailY = velocityRef.current.y * 2;
         if (Math.abs(tailX) < 0.1) tailX = 0.5;
         if (Math.abs(tailY) < 0.1) tailY = 0.5;
-
         ctx.lineTo(star.x + tailX, star.y + tailY);
         ctx.stroke();
       });
@@ -155,87 +133,63 @@ export default function Starfield({
       const px = pointerRef.current.x;
       const py = pointerRef.current.y;
       if (typeof px === "number" && typeof py === "number") {
-        const ox = x - px,
-          oy = y - py;
-        velocityRef.current.tx = velocityRef.current.tx + (ox / (8 * dimsRef.current.scale)) * (touchRef.current ? 1 : -1);
-        velocityRef.current.ty = velocityRef.current.ty + (oy / (8 * dimsRef.current.scale)) * (touchRef.current ? 1 : -1);
+        const ox = x - px, oy = y - py;
+        velocityRef.current.tx = velocityRef.current.tx + (ox / 8 * dimsRef.current.scale) * (touchRef.current ? 1 : -1);
+        velocityRef.current.ty = velocityRef.current.ty + (oy / 8 * dimsRef.current.scale) * (touchRef.current ? 1 : -1);
       }
       pointerRef.current.x = x;
       pointerRef.current.y = y;
     }
 
-    // --- unified pointer handlers (we listen on window so canvas can be pointer-events:none) ---
     function onMouseMove(e) {
       touchRef.current = false;
-      // convert to canvas pixel coords by multiplying with devicePixelRatio
       movePointer(e.clientX * dimsRef.current.scale, e.clientY * dimsRef.current.scale);
     }
     function onTouchMove(e) {
       touchRef.current = true;
       const t = e.touches[0];
       if (t) movePointer(t.clientX * dimsRef.current.scale, t.clientY * dimsRef.current.scale);
-      // prevent page scroll while touching the background
-      e.preventDefault?.();
+      e.preventDefault();
     }
-    function onPointerLeave() {
+    function onLeave() {
       pointerRef.current.x = null;
       pointerRef.current.y = null;
     }
 
-    // init
     generate();
     resize();
     step();
 
-    // use window listeners so the canvas element can have pointer-events:none
     window.addEventListener("resize", resize);
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onPointerLeave);
-    document.addEventListener("mouseleave", onPointerLeave);
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onLeave);
+    document.addEventListener("mouseleave", onLeave);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", resize);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onPointerLeave);
-      document.removeEventListener("mouseleave", onPointerLeave);
+      canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onLeave);
+      document.removeEventListener("mouseleave", onLeave);
     };
   }, [starColor, starSize, starMinScale, overflowThreshold]);
 
-  // wrapper: fixed full-screen with your theme color + subtle gradients.
-  // canvas has pointerEvents none so it won't block clicks; we read pointer from window.
+  // fix stacking and pointer issues:
   return (
-    <div
-      aria-hidden
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: "none",
-        backgroundColor: "#010b1fff", // change this if you want different base color
-      }}
-    >
+    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", backgroundColor: "#020b1bff" }}>
       <div
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
-          pointerEvents: "none",
           backgroundImage:
-            "radial-gradient(circle at top right, rgba(121, 68, 154, 0.13), transparent), radial-gradient(circle at 20% 80%, rgba(41, 196, 255, 0.08), transparent)",
-        }}
-      />
-      <canvas
-        ref={canvasRef}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "block",
+            "radial-gradient(circle at top right, rgba(121, 68, 154, 0.13), transparent), radial-gradient(circle at 20% 80%, rgba(41, 196, 255, 0.13), transparent)",
           pointerEvents: "none",
         }}
       />
+      <canvas ref={canvasRef} />
     </div>
   );
 }
