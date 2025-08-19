@@ -1,10 +1,19 @@
 import React from 'react';
 import { graphql } from 'gatsby';
 import PropTypes from 'prop-types';
-import { Layout, Hero, About, Jobs, Featured, Projects, Contact } from '@components';
+import {
+  Layout,
+  Hero,
+  About,
+  Jobs,
+  Featured,
+  Projects,
+  Contact,
+} from '@components';
 import styled from 'styled-components';
 import { Main } from '@styles';
-import Portfolio3D from '../components/Portfolio3D';  // 👈 add this
+//import Portfolio3D from '../components/Portfolio3D'; // 👈 add this
+import Starfield from '../components/Starfield';
 
 const StyledMainContainer = styled(Main)`
   counter-reset: section;
@@ -12,12 +21,18 @@ const StyledMainContainer = styled(Main)`
 
 const IndexPage = ({ location, data }) => (
   <Layout location={location}>
-    <div style={{ position: "relative", minHeight: "100vh", background: "#0a192f" }}>
+    <div
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        background: '#0a192f',
+      }}
+    >
       {/* 3D background (absolute, non-blocking) */}
-      <Portfolio3D />
+      <Starfield />
 
       {/* Content overlay */}
-      <div style={{ position: "relative", zIndex: 2 }}>
+      <div style={{ position: 'relative', zIndex: 2 }}>
         <StyledMainContainer className="fillHeight">
           <Hero data={data.hero.edges} />
           <About data={data.about.edges} />
@@ -53,14 +68,20 @@ export const pageQuery = graphql`
         }
       }
     }
-    about: allMarkdownRemark(filter: { fileAbsolutePath: { regex: "/about/" } }) {
+    about: allMarkdownRemark(
+      filter: { fileAbsolutePath: { regex: "/about/" } }
+    ) {
       edges {
         node {
           frontmatter {
             title
             avatar {
               childImageSharp {
-                fluid(maxWidth: 700, quality: 90, traceSVG: { color: "#64ffda" }) {
+                fluid(
+                  maxWidth: 700
+                  quality: 90
+                  traceSVG: { color: "#64ffda" }
+                ) {
                   ...GatsbyImageSharpFluid_withWebp_tracedSVG
                 }
               }
@@ -98,7 +119,11 @@ export const pageQuery = graphql`
             title
             cover {
               childImageSharp {
-                fluid(maxWidth: 700, quality: 90, traceSVG: { color: "#64ffda" }) {
+                fluid(
+                  maxWidth: 700
+                  quality: 90
+                  traceSVG: { color: "#64ffda" }
+                ) {
                   ...GatsbyImageSharpFluid_withWebp_tracedSVG
                 }
               }
@@ -130,7 +155,9 @@ export const pageQuery = graphql`
         }
       }
     }
-    contact: allMarkdownRemark(filter: { fileAbsolutePath: { regex: "/contact/" } }) {
+    contact: allMarkdownRemark(
+      filter: { fileAbsolutePath: { regex: "/contact/" } }
+    ) {
       edges {
         node {
           frontmatter {
